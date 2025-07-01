@@ -232,20 +232,74 @@ void run_vocabulary() {
 }
 
 void run_huffman() {
-    std::vector<float> weights = { 1.0, 2.0, 1.0, 3.0, 2.0, 1.0 };
+    std::string filepath = "weights.txt"; // 固定输入文件
+
+    std::ifstream infile(filepath);
+    if (!infile.is_open()) {
+        std::cerr << "无法打开文件: " << filepath << std::endl;
+        return;
+    }
+
+    std::vector<float> weights;
+    float val;
+    while (infile >> val) {
+        weights.push_back(val);
+    }
+    infile.close();
+
+    if (weights.empty()) {
+        std::cerr << "文件中未读取到任何权重。\n";
+        return;
+    }
 
     if (!compressWeights(weights, "model.huff")) {
         std::cerr << "压缩失败。\n";
         return;
     }
-    std::cout << "压缩完成！\n";
+    std::cout << "\n压缩完成！压缩文件已保存为 model.huff\n";
+
+    // 展示压缩文件的比特流
+    std::ifstream compressed("model.huff", std::ios::binary);
+    if (!compressed.is_open()) {
+        std::cerr << "无法打开压缩文件以读取比特流。\n";
+        return;
+    }
+
+    uint32_t tableSize;
+    compressed.read(reinterpret_cast<char*>(&tableSize), sizeof(uint32_t));
+
+    for (uint32_t i = 0; i < tableSize; ++i) {
+        compressed.seekg(sizeof(float) + 1, std::ios::cur);
+        uint8_t codeLen;
+        compressed.read(reinterpret_cast<char*>(&codeLen), 1);
+        compressed.seekg(codeLen, std::ios::cur);
+    }
+
+    uint64_t bitsTotal = 0;
+    compressed.read(reinterpret_cast<char*>(&bitsTotal), sizeof(uint64_t));
+
+    size_t packedSize = (bitsTotal + 7) / 8;
+    std::vector<uint8_t> packed(packedSize);
+    compressed.read(reinterpret_cast<char*>(packed.data()), packedSize);
+    compressed.close();
+
+    std::cout << "\n压缩后的二进制比特流（十六进制显示）:\n";
+    for (uint8_t byte : packed) {
+        printf("%02X ", byte);
+    }
+    std::cout << std::endl;
+
+    std::cout << "\n输入 dec 开始解压并输出还原矩阵，输入其他内容返回主菜单: ";
+    std::string cmd;
+    std::cin >> cmd;
+    if (cmd != "dec") return;
 
     std::vector<float> restored;
     if (!decompressWeights("model.huff", restored)) {
         std::cerr << "解压失败。\n";
         return;
     }
-    std::cout << "解压成功！还原权重:\n";
+    std::cout << "\n解压成功！还原权重矩阵:\n";
     for (float f : restored) std::cout << f << " ";
     std::cout << std::endl;
 }
