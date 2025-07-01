@@ -1,0 +1,5 @@
+This is a simple corpus file.
+It contains several sentences.
+Each sentence has words that will be tokenized.
+Simple words will be assigned unique IDs.
+Test your tokenizer and hash table with this corpus.
